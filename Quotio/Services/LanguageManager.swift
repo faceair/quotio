@@ -60,6 +60,7 @@ struct LocalizedStrings {
         
         // Status
         "status.running": [.english: "Running", .vietnamese: "Đang chạy"],
+        "status.starting": [.english: "Starting...", .vietnamese: "Đang khởi động..."],
         "status.stopped": [.english: "Stopped", .vietnamese: "Đã dừng"],
         "status.ready": [.english: "Ready", .vietnamese: "Sẵn sàng"],
         "status.cooling": [.english: "Cooling", .vietnamese: "Đang nghỉ"],

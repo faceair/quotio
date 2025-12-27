@@ -144,6 +144,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
     
+    func applicationWillTerminate(_ notification: Notification) {
+        CLIProxyManager.terminateProxyOnShutdown()
+    }
+    
     private func handleWindowDidBecomeKey(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
         guard window.title == "Quotio" else { return }
@@ -218,12 +222,23 @@ struct ContentView: View {
                 
                 Section {
                     HStack {
-                        Circle()
-                            .fill(viewModel.proxyManager.proxyStatus.running ? .green : .gray)
-                            .frame(width: 8, height: 8)
+                        if viewModel.proxyManager.isStarting {
+                            ProgressView()
+                                .controlSize(.mini)
+                                .frame(width: 8, height: 8)
+                        } else {
+                            Circle()
+                                .fill(viewModel.proxyManager.proxyStatus.running ? .green : .gray)
+                                .frame(width: 8, height: 8)
+                        }
                         
-                        Text(viewModel.proxyManager.proxyStatus.running ? "status.running".localized() : "status.stopped".localized())
-                            .font(.caption)
+                        if viewModel.proxyManager.isStarting {
+                            Text("status.starting".localized())
+                                .font(.caption)
+                        } else {
+                            Text(viewModel.proxyManager.proxyStatus.running ? "status.running".localized() : "status.stopped".localized())
+                                .font(.caption)
+                        }
                         
                         Spacer()
                         

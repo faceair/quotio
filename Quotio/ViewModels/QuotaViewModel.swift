@@ -49,7 +49,7 @@ final class QuotaViewModel {
     private var lastLogTimestamp: Int?
     
     init() {
-        self.proxyManager = CLIProxyManager()
+        self.proxyManager = CLIProxyManager.shared
     }
     
     var authFilesByProvider: [AIProvider: [AuthFile]] {

@@ -9,8 +9,42 @@ import AppKit
 @MainActor
 @Observable
 final class CLIProxyManager {
+    static let shared = CLIProxyManager()
+    
+    nonisolated static func terminateProxyOnShutdown() {
+        let savedPort = UserDefaults.standard.integer(forKey: "proxyPort")
+        let port = (savedPort > 0 && savedPort < 65536) ? UInt16(savedPort) : 8080
+        killProcessOnPort(port)
+    }
+    
+    nonisolated private static func killProcessOnPort(_ port: UInt16) {
+        let lsofProcess = Process()
+        lsofProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        lsofProcess.arguments = ["-ti", "tcp:\(port)"]
+        
+        let pipe = Pipe()
+        lsofProcess.standardOutput = pipe
+        lsofProcess.standardError = FileHandle.nullDevice
+        
+        do {
+            try lsofProcess.run()
+            lsofProcess.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            guard let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !output.isEmpty else { return }
+            
+            for pidString in output.components(separatedBy: .newlines) {
+                if let pid = Int32(pidString.trimmingCharacters(in: .whitespaces)) {
+                    kill(pid, SIGKILL)
+                }
+            }
+        } catch {
+        }
+    }
+    
     private var process: Process?
-    private var authProcess: Process?  // Track auth process for cleanup
+    private var authProcess: Process?
     private(set) var proxyStatus = ProxyStatus()
     private(set) var isStarting = false
     private(set) var isDownloading = false
@@ -413,10 +447,52 @@ final class CLIProxyManager {
     
     func stop() {
         terminateAuthProcess()
-        process?.terminate()
-        process?.waitUntilExit()
+        forceTerminateProcess()
+        killProcessOnPort(proxyStatus.port)
         process = nil
         proxyStatus.running = false
+    }
+    
+    private func forceTerminateProcess() {
+        guard let process = process, process.isRunning else { return }
+        
+        let pid = process.processIdentifier
+        process.terminate()
+        
+        let deadline = Date().addingTimeInterval(2.0)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        
+        if process.isRunning {
+            kill(pid, SIGKILL)
+        }
+    }
+    
+    private func killProcessOnPort(_ port: UInt16) {
+        let lsofProcess = Process()
+        lsofProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        lsofProcess.arguments = ["-ti", "tcp:\(port)"]
+        
+        let pipe = Pipe()
+        lsofProcess.standardOutput = pipe
+        lsofProcess.standardError = FileHandle.nullDevice
+        
+        do {
+            try lsofProcess.run()
+            lsofProcess.waitUntilExit()
+            
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            guard let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !output.isEmpty else { return }
+            
+            for pidString in output.components(separatedBy: .newlines) {
+                if let pid = Int32(pidString.trimmingCharacters(in: .whitespaces)) {
+                    kill(pid, SIGKILL)
+                }
+            }
+        } catch {
+        }
     }
     
     func terminateAuthProcess() {

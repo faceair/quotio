@@ -265,7 +265,11 @@ struct MenuBarView: View {
             
             // Quit
             Button {
-                NSApplication.shared.terminate(nil)
+                Task {
+                    viewModel.stopProxy()
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    NSApplication.shared.terminate(nil)
+                }
             } label: {
                 HStack {
                     Image(systemName: "power")
